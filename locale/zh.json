@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "变更流水线",
+    "description": "把多个 OpenSpec change 排成一张图，按依赖顺序或并行开新对话执行；默认组合可复用，没有附加提示词就只发「执行 xxx Change」。"
+  }
+}

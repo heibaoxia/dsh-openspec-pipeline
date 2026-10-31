@@ -1,0 +1,65 @@
+{
+  "name": "dsh-openspec-pipeline",
+  "version": "0.11.0",
+  "type": "module",
+  "description": "OpenSpec 变更流水线：把多个 change 排成一张有顺序的图，按图开新对话执行；规划进度读 openspec status、任务进度读 openspec list，卡住时可以一键 validate --strict + 归档。",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "openspec",
+    "sdd",
+    "spec-driven",
+    "pipeline",
+    "cordis-plugin"
+  ],
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "locale",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heibaoxia/dsh-openspec-pipeline.git"
+  },
+  "homepage": "https://github.com/heibaoxia/dsh-openspec-pipeline#readme",
+  "bugs": {
+    "url": "https://github.com/heibaoxia/dsh-openspec-pipeline/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "plugin": true,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "disclosure": {
+    "cloud": false,
+    "network": [],
+    "apiKeys": [],
+    "permissions": [
+      "filesystem:read-write（只读写所选仓库的 openspec/ 目录和插件自己的设置文件）",
+      "process:spawn（调 openspec CLI：list / status / validate / archive）",
+      "host:sessionController（在工作区里新建顶层对话）"
+    ],
+    "jurisdiction": [],
+    "retention": "none"
+  }
+}

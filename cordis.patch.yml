@@ -1,0 +1,3 @@
+- insert:
+    - id: openspec-pipeline
+      name: dsh-openspec-pipeline
