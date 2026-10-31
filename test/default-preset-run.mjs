@@ -201,31 +201,30 @@ check('done 的说明写明已归档', String(firstNode?.note || '').includes('�
 
 // 2. 节点自己设了四样 → 按节点自己的；写了提示词 → 接在后面。
 //    先把 foo 挪回 changes/，好让这一格重新开一次对话。
+//    重置用 plan（重写整张图），不用 save：0.12 起 save 只改画布上的东西，
+//    状态一律以服务器为准 —— 否则自动落盘会把客户端的旧状态写回文件。
 unarchiveChange('foo')
+await waitFor((payload) => payload.running === false)
 calls.created.length = 0
 calls.selected.length = 0
 calls.restored.length = 0
 calls.prompted.length = 0
 await postAction({
-  action: 'save',
-  state: {
-    name: '默认组合测试',
-    maxParallel: 1,
-    profiles: [combo],
-    defaultProfileId: 'p1',
-    nodes: [
-      {
-        id: 'N1',
-        change: 'foo',
-        deps: ['start'],
-        preset: 'own',
-        provider: 'op',
-        model: 'om',
-        effort: 'high',
-        prompt: '只做任务清单里的第 1 项；做完就跑一遍 pnpm test。',
-      },
-    ],
-  },
+  action: 'plan',
+  name: '默认组合测试',
+  defaultProfileId: 'p1',
+  nodes: [
+    {
+      id: 'N1',
+      change: 'foo',
+      deps: ['start'],
+      preset: 'own',
+      provider: 'op',
+      model: 'om',
+      effort: 'high',
+      prompt: '只做任务清单里的第 1 项；做完就跑一遍 pnpm test。',
+    },
+  ],
 })
 await postAction({ action: 'run' })
 await waitFor((payload) => payload.state?.nodes?.some((node) => node.change === 'foo' && node.status === 'done'))

@@ -1,6 +1,6 @@
 {
   "name": "dsh-openspec-pipeline",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "type": "module",
   "description": "OpenSpec 变更流水线：把多个 change 排成一张有顺序的图，按图开新对话执行；规划进度读 openspec status、任务进度读 openspec list，卡住时可以一键 validate --strict + 归档。",
   "license": "MIT",
