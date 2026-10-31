@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "变更流水线",
-    "description": "把多个 OpenSpec change 排成一张图，按依赖顺序或并行开新对话执行；默认组合可复用，没有附加提示词就只发「执行 xxx Change」。"
+    "description": "把多个 OpenSpec change 排成一张有顺序的图，逐个/并行开新对话执行。规划进度读 openspec status、任务进度读 openspec list；卡住时点一下「归档」，先 validate --strict 再 archive。"
   }
 }

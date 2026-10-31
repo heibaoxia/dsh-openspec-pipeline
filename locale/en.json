@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Change Pipeline",
-    "description": "Arrange several OpenSpec changes into one graph and run each in its own conversation in order or in parallel; reuse a default settings combo, and with no extra prompt the conversation just gets \"run the xxx Change\"."
+    "description": "Arrange several OpenSpec changes into one ordered graph and run each in its own conversation, in order or in parallel. Planning progress comes from openspec status, task progress from openspec list; when a change gets stuck, one Archive button runs validate --strict and then archive."
   }
 }
