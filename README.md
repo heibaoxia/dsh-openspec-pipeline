@@ -23,7 +23,7 @@ https://github.com/heibaoxia/dsh-openspec-pipeline
 dsh plugin --profile web add github:heibaoxia/dsh-openspec-pipeline
 ```
 
-装完**重启 DSH**（桌面端重启应用；CLI 重跑 `dsh web`），再刷新页面。面板顶栏出现 `v0.13.0` 就算装上了。
+装完**重启 DSH**（桌面端重启应用；CLI 重跑 `dsh web`），再刷新页面。面板顶栏出现 `v0.14.0` 就算装上了。
 
 **前置条件**（缺了不会崩，只是少功能）：
 
@@ -192,7 +192,7 @@ C:\Users\<你>\.dsh\profiles\desktop\openspec-pipeline.log
   `N2 等你 · change 名 · 做到 3/9 · 原因`，后面跟一个**「归档」按钮**（见下面「卡住的时候」）。
 - **手动排序提示**：左栏是「手动排序」时，面板顶部会多一行提醒——新对话会排到分组末尾，切成「最近更新」才看得见。
 
-头部版本号（当前 `v0.13.0`）可以用来确认页面加载的是新代码；还是旧版本就硬刷新/重启。
+头部版本号（当前 `v0.14.0`）可以用来确认页面加载的是新代码；还是旧版本就硬刷新/重启。
 
 ### 提示词：唯一能定制「这一格干什么」的地方
 
@@ -538,6 +538,113 @@ Host 到面板有一条 **SSE 长连接**：`GET /openspec-pipeline/api/events`�
 右键节点 →「从图里删掉这一格」是**立即删除并落盘**；流水线正在跑时也能删（还没开工的格子不受影响，
 正在跑的格子保留自己的状态）。
 
+## 让 Agent 把顺序画成图（`wire`，0.14.0）
+
+十几个 change 一个个点太慢。`wire` 是给 Agent 用的画图入口：**一次调用把顺序写成图，
+人还能接着改，改完 Agent 还能再补一格** —— 两边写的是同一张画布。
+
+**它和人拖线走同一条路**（`mergeRunningGraph`）：图以画布为准（节点、线、位置、四样设置、
+提示词），事实以宿主为准（状态、开工时间、sessionId、提交结果）。所以跑着的时候也能调，
+效果和手拖一条线完全一样。没有「Agent 生成的那一份」，也没有只读模式。
+
+### 三种写法（三选一）
+
+```jsonc
+// 串行：第一个接「开工」，后面每个等前一个
+{ "action": "wire", "order": ["workspace-listing-cost", "backend-suite-contract-catchup", "handoff-artifact-snapshot-ref"] }
+
+// 串并：组内同时起跑，下一组等上一组全部跑完
+{ "action": "wire", "stages": [["a"], ["b", "c"], ["d"]] }
+
+// 任意依赖：after 是上游的 change 名（不是节点 id），不写等于接「开工」
+{ "action": "wire", "steps": [{ "change": "a", "after": [] }, { "change": "b", "after": ["a"] }, { "change": "c", "after": ["a"] }] }
+```
+
+上游一律写 **change 名**。节点 id 插件自己定（图里已有的沿用，新的直接用 change 名），
+不用管，也就不会对错。
+
+### 逐格写提示词、换模型
+
+```jsonc
+{ "action": "wire", "order": ["a", "b"],
+  "settings": [
+    { "change": "a", "prompt": "按 proposal 的通过标准逐条跑；全过就归档。" },
+    { "change": "b", "prompt": "…", "model": "deepseek-pro", "effort": "high" }
+  ] }
+```
+
+只认六项：`prompt` / `preset` / `provider` / `model` / `effort` / `commit`。
+**没写的项一律不动。** 状态、开工时间、sessionId、说明不在名单里 —— 它们不是画布上的东西。
+已经跑完或正在跑的格子，**设置也不动**：改了它也不会再跑，只会把「这一格当时被告知了什么」
+这条记录改掉。
+
+新加的格子照 `add-all` 的规矩播种**默认组合**（连提示词一起）。所以 `settings` 里给了
+`prompt` 就用你那份，没给就继承默认组合那句，不会出现「这一格没有归档要求」。
+
+### 它只动你点名的格子
+
+| 情况 | wire 怎么做 |
+| --- | --- |
+| 图里没有这一格 | 新增，`待跑`，位置留空（画布按依赖层自动排） |
+| 图里有、还在待跑 | 按这次的线走；**但没人说重排就不动它已有的线** |
+| 图里有、正在跑 / 跑完了 | **线和设置都不动**。事实已经发生了，改它也不会让它重跑 |
+| 图里有、这次没点名 | **一根手指都不碰**（`plan` 是整张重写，这是它俩最大的区别） |
+| 删除 | **不做**。删是右键的活，Agent 只加和接 |
+
+**关于「已有的线」**：默认 `rewire: false`。你在画布上把 N8 从链上摘了，下一次 Agent 画图
+不会偷偷接回去 —— 它只在自己的回话里说一句「已有线没动，要重排加 rewire」。真要先按新顺序
+重排，才传 `rewire: true`；跑完了和正在跑的格子仍然不动。
+
+### 坏图整单拒绝
+
+这三种情况**什么都不写**，把问题原样交回来：
+
+- **名字不存在**：`openspec/changes/` 和 `archive/` 里都没有这个 change；
+- **成环**：接出了 `a → b → a`（`plan` 不查这个：一条线接反了，前半段跑完就收工、后半段
+  永远待跑，你会以为整批都做完了）；
+- **两种写法同时给**：`order` / `stages` / `steps` 只能给一个。
+
+### 先算一遍再落笔
+
+`dryRun: true` 只算不写，回话和真写时一模一样：加几格、改几条线、第几批跑、每格等谁。
+Agent 该先用它自检一遍。真写完的回话长这样：
+
+```
+新增 3 格（alpha、beta、gamma）。
+执行顺序（只算这次点到的格子）：
+  第 1 批：alpha
+  第 2 批：beta、gamma  ← 并列
+  第 3 批：delta
+每格等谁：
+  alpha → 开工
+  beta → alpha
+  gamma → alpha
+  delta → beta、gamma
+有 2 格并列。真要同时跑，maxParallel 得 ≥ 2；现在是 1，会一个接一个跑。
+```
+
+「每格等谁」写的是**图里实际的线**，不是这次想接的线：人手断开后被 hold 住的那几格，
+这里会如实写「没接线」，不会顺着你的意思说已经接好了。
+
+最后那句别忽略：**`deps` 满足不等于真的并行**。`maxParallel = 1` 时并列的格子也是一个接
+一个跑，只是顺序不固定。要真并行就把上限调上去（`⋯` 里，或者 `wire` 时带 `maxParallel`）。
+
+### 和 `plan` 的分工
+
+| | `plan` | `wire` |
+| --- | --- | --- |
+| 用途 | 从零重画一张图 | 往现有的图上补、接 |
+| 对别的格子 | 全部重写（状态、开工时间、session 归零） | 一根手指都不碰 |
+| 跑着的时候 | 拒绝 | **允许**（只影响还没开工的格子） |
+| 校验 | 不校验 | 名字、环、写法 |
+| 提示词播种 | 不播种 | 播种默认组合 |
+
+**只在图是空的时候用 `plan`。** 图里已经有东西（尤其跑过一半）再用 `plan`，
+等于把这批的记录重写一遍。
+
+排序的判断（谁必须等谁、哪几刀能并行）**不在插件里**。插件只给事实和校验，
+顺序由人来定 —— 或者由装了 `pipeline-order` 技能的 Agent 来定，它调的就是这个 `wire`。
+
 ## 依赖：openspec 命令
 
 0.10.0 起，**任务做到哪**和**归档**都靠 `openspec` 这条命令：
@@ -572,7 +679,14 @@ node plugins/dsh-openspec-pipeline/test/false-disconnect.mjs
 node plugins/dsh-openspec-pipeline/test/per-workspace.mjs
 node plugins/dsh-openspec-pipeline/test/save-server-facts.mjs
 node plugins/dsh-openspec-pipeline/test/commit-node.mjs
+node plugins/dsh-openspec-pipeline/test/wire.mjs
 ```
+
+`wire.mjs` 证明「画进去」和「还能改」同时成立：三种写法接出对的线、重复画幂等、
+**人手断开过的线不会被下一次画图接回去**（`rewire: true` 才接）、跑着的时候补一格
+正在跑的那格状态和 sessionId 不动且这一轮会接着把它跑掉、跑完的格子线不动、
+坏图（名字不存在 / 成环 / 两种写法）整单拒绝一个字节都不写、`settings` 逐格写提示词和模型
+且没写的项不动、`dryRun` 真的不落盘。
 
 `commit-node.mjs` 在临时目录里造几个真 git 仓库，证明四件事：勾了的格子归档后各多一条提交
 （信息、正文、顺序都对）、没勾的格子一条都不多、没东西可提交也算完成、`index.lock` 被占时
