@@ -170,6 +170,12 @@ await new Promise((resolve) => setTimeout(resolve, 900))
 const duplicates = queue.filter((event) => event.type === 'archived')
 check('同一个归档不重复推', duplicates.length === 0, JSON.stringify(queue))
 
+// 4. 仓库里的文件动了（对话在勾 tasks / 写 specs）→ 推 changes，让面板立刻重读。
+mkdirSync(path.join(changes, 'fresh', 'specs'), { recursive: true })
+writeFileSync(path.join(changes, 'fresh', 'tasks.md'), '- [ ] 做事\n', 'utf8')
+const changed = await nextEvent((event) => event.type === 'changes')
+check('仓库里的文件动了会推 changes', changed.type === 'changes', JSON.stringify(changed))
+
 try {
   reader.cancel()
 } catch {}

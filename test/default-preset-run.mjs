@@ -252,7 +252,7 @@ await postAction({
   state: {
     name: '默认组合测试',
     maxParallel: 1,
-    profiles: [{ ...combo, prompt: comboPrompt }],
+    profiles: [{ ...combo, prompt: comboPrompt, commit: true }],
     defaultProfileId: 'p1',
     nodes: [{ id: 'N1', change: 'foo', deps: ['start'], status: 'done' }],
   },
@@ -268,6 +268,9 @@ const afterAdd = await getState()
 const barNode = afterAdd.state?.nodes?.find((node) => node.change === 'bar')
 check('add-all 新加的节点带上组合的提示词', barNode?.prompt === comboPrompt, JSON.stringify(barNode))
 check('add-all 新加的节点也带上组合的四样', barNode?.preset === 'standard' && barNode?.model === 'mm', JSON.stringify(barNode))
+// 0.15 起「归档后提交」也进组合：存过这一项，新加的节点就带上；没存过的老组合不碰节点上的勾。
+check('组合里的归档后提交存进了 pipeline.json', beforeAdd.state?.profiles?.[0]?.commit === true, JSON.stringify(beforeAdd.state?.profiles?.[0]))
+check('add-all 新加的节点也带上组合里的归档后提交', barNode?.commit === true, JSON.stringify(barNode?.commit))
 
 console.log(failures.length ? `\n${failures.length} 项失败` : '\n全部通过')
 process.exit(failures.length ? 1 : 0)
