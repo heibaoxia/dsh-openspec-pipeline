@@ -4,7 +4,10 @@
 //   1. 手册按项目存：A 写的手册，B 读不到；
 //   2. 开监工会建一个会话，把口径发过去，sessionId 落进 pipeline.json；
 //   3. 情况一：某一格对话收尾了但没归档 → 给监工发值班单（带手册、带那一格最后说的话）；
-//   4. 情况二：上一格已经归档、但没人接着跑 → 也给监工发值班单。
+//   4. 情况二：上一格已经归档、但没人接着跑 → 也给监工发值班单；
+//   5. 三条投递（开监工 / 值班单 / tell）都必须带取消信号才算送达；值班单送不出去时记进
+//      supervisor.lastError，下一次送成功清空；
+//   6. 口径第一次没送出去：建好的会话留着，重试复用同一个，不再建第二个孤儿。
 //
 // 跑法：
 //   node plugins/dsh-openspec-pipeline/test/supervisor.mjs
@@ -74,6 +77,9 @@ const routes = []
 const sessions = new Map()
 const prompts = [] // { sessionId, text }
 let sessionSeq = 0
+let createCalls = 0 // 建过几个监工 / 工作会话：重试时不该再建第二个
+let rejectPromptFor = '' // 非空时，发给这个会话的投递一律失败（模拟宿主不收）
+let rejectNextPrompt = false // 下一条投递直接失败（模拟口径第一次没送出去）
 const workspaces = [
   { id: 'wa', title: 'proj-a', path: projA },
   { id: 'wb', title: 'proj-b', path: projB },
@@ -86,6 +92,7 @@ const ctx = {
     if (name === 'sessionController') {
       return {
         async create() {
+          createCalls += 1
           const sessionId = `session-${++sessionSeq}`
           sessions.set(sessionId, {
             seq: 0,
@@ -103,11 +110,20 @@ const ctx = {
           })
           return { sessionId }
         },
-        async prompt(request) {
+        // 宿主的真实现第一行就是 signal.throwIfAborted()：第二个参数缺了要当场炸，
+        // 不能像以前那样默默收下（那正是「启用监工」报错被吞掉的原因）。
+        async prompt(request, signal) {
+          if (!signal) throw new Error('sessionController.prompt 少了取消信号（signal.throwIfAborted 读不到）')
+          // 先记下再判拒收：投递失败也留下了「发过什么」的证据，测试才分得清是没发还是没送到。
           prompts.push({
             sessionId: String(request.sessionId || ''),
             text: String(request.content?.[0]?.text || ''),
           })
+          if (rejectNextPrompt) {
+            rejectNextPrompt = false
+            throw new Error('宿主：这一条没送进去')
+          }
+          if (rejectPromptFor && rejectPromptFor === request.sessionId) throw new Error('宿主：这个对话现在不收消息')
           return { accepted: true }
         },
       }
@@ -180,6 +196,8 @@ check('监工 sessionId 记进了 pipeline.json', Boolean(supervisor?.sessionId)
 check('监工开着', supervisor?.enabled === true, JSON.stringify(supervisor))
 const intro = prompts.find((row) => row.sessionId === supervisor.sessionId && row.text.includes('值班监工'))
 check('开了之后先发口径', Boolean(intro), JSON.stringify(prompts.map((row) => row.text.slice(0, 30))))
+// 从这里开始，宿主拒收发给监工的话：值班单送不出去要留下记录。
+rejectPromptFor = supervisor.sessionId
 
 // ---------- 3. 情况一：对话收尾了但没归档 → 值班单 ----------
 await post({ action: 'run', root: projA })
@@ -194,6 +212,23 @@ const pausedReport = await waitFor(() =>
 check('卡住之后给监工发了值班单', Boolean(pausedReport), JSON.stringify(prompts.map((row) => row.text.slice(0, 40))))
 check('值班单带上手册原文', Boolean(pausedReport?.text.includes(manualA)), pausedReport?.text?.slice(0, 200))
 check('值班单带上那一格最后说的话', Boolean(pausedReport?.text.includes('这个断言要放宽吗')), pausedReport?.text?.slice(0, 400))
+const failedNotify = await waitFor(async () => {
+  const view = await getState(projA)
+  return view.state?.supervisor?.lastError ? view : null
+})
+check(
+  '值班单没送出去 → lastError 记下原因',
+  Boolean(failedNotify?.state?.supervisor?.lastError.includes('不收')),
+  JSON.stringify(failedNotify?.state?.supervisor),
+)
+
+// tell 这条路也要真的送进去，并且能等到那一格的回复。
+const told = await post({ action: 'tell', root: projA, nodeId: 'N1', text: '这一格还差什么？', wait: true })
+check(
+  'tell 送进那一格并带回回复',
+  told.ok === true && String(told.text || '').includes('这个断言要放宽吗'),
+  JSON.stringify(told.text || told.error),
+)
 await post({ action: 'stop', root: projA })
 
 // ---------- 4. 情况二：上一格归档了、下一格没启动 → 值班单 ----------
@@ -209,12 +244,38 @@ const pump = (async () => {
 await pause(300)
 
 prompts.length = 0
+rejectPromptFor = '' // 宿主恢复收消息：这一张值班单要能送进去
 renameSync(path.join(projA, 'openspec', 'changes', 'a-one'), path.join(projA, 'openspec', 'changes', 'archive', '2026-11-02-a-one'))
 const stuckReport = await waitFor(() =>
   prompts.find((row) => row.sessionId === supervisor.sessionId && row.text.includes('已经归档')),
 )
 check('归档了没人接着跑 → 给监工发值班单', Boolean(stuckReport), JSON.stringify(prompts.map((row) => row.text.slice(0, 40))))
 check('值班单说清是哪一格', Boolean(stuckReport?.text.includes('N1')), stuckReport?.text?.slice(0, 300))
+const recovered = await getState(projA)
+check(
+  '下一次值班单送成功 → lastError 清空',
+  recovered.state?.supervisor?.lastError === '',
+  JSON.stringify(recovered.state?.supervisor),
+)
+
+// ---------- 5. 口径第一次没送出去：会话留着，重试复用同一个 ----------
+const createsBeforeB = createCalls
+rejectNextPrompt = true
+const firstTry = await post({ action: 'supervisor', root: projB, enabled: true })
+check('口径没送出去 → 开监工返回失败', firstTry.ok === false, JSON.stringify(firstTry.text || firstTry.error))
+const afterFailB = await getState(projB)
+const supervisorB = afterFailB.state?.supervisor
+check('失败的会话已经记进 pipeline.json', Boolean(supervisorB?.sessionId), JSON.stringify(supervisorB))
+check('口径没送出去，监工不算开着', supervisorB?.enabled === false, JSON.stringify(supervisorB))
+const retried = await post({ action: 'supervisor', root: projB, enabled: true })
+check('重试开成功了', retried.ok === true, JSON.stringify(retried.text || retried.error))
+const afterRetryB = await getState(projB)
+check(
+  '重试复用同一个会话，没有第二个孤儿',
+  afterRetryB.state?.supervisor?.sessionId === supervisorB?.sessionId && createCalls - createsBeforeB === 1,
+  `sessionId ${supervisorB?.sessionId} → ${afterRetryB.state?.supervisor?.sessionId}，create 调了 ${createCalls - createsBeforeB} 次`,
+)
+check('重试之后监工开着', afterRetryB.state?.supervisor?.enabled === true, JSON.stringify(afterRetryB.state?.supervisor))
 
 try {
   await reader.cancel()

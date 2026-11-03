@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "name": "未命名流水线",
+  "maxParallel": 1,
+  "pauseAfterNode": false,
+  "defaultProfileId": "p1793686802611",
+  "profiles": [
+    {
+      "id": "p1793686802611",
+      "name": "便宜17",
+      "preset": "ptc",
+      "provider": "ppxdeepseek",
+      "model": "deepseek-v4.1-flash-1017",
+      "effort": "max",
+      "prompt": "可以用马尾辫这个skill来辅助代码实现。",
+      "commit": true
+    }
+  ],
+  "supervisor": {
+    "enabled": false,
+    "sessionId": "",
+    "preset": "",
+    "provider": "",
+    "model": "",
+    "effort": "",
+    "lastAt": "",
+    "lastNote": ""
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "kind": "start",
+      "change": "",
+      "x": null,
+      "y": null,
+      "deps": [],
+      "preset": "",
+      "provider": "",
+      "model": "",
+      "effort": "",
+      "prompt": "",
+      "commit": false,
+      "approved": "",
+      "status": "done",
+      "note": "",
+      "sessionId": "",
+      "updatedAt": ""
+    },
+    {
+      "id": "N2",
+      "kind": "change",
+      "change": "fix-supervisor-prompt-signal",
+      "x": 20,
+      "y": 87,
+      "deps": [
+        "start"
+      ],
+      "preset": "ptc",
+      "provider": "ppxdeepseek",
+      "model": "deepseek-v4.1-flash-1017",
+      "effort": "max",
+      "prompt": "可以用马尾辫这个skill来辅助代码实现。",
+      "commit": true,
+      "approved": "2026-11-03T06:20:06.509Z",
+      "status": "running",
+      "note": "",
+      "sessionId": "session-c08b43a9-ec62-4a43-ae43-3398e063afa5",
+      "updatedAt": "2026-11-03T06:20:06.666Z"
+    },
+    {
+      "id": "N3",
+      "kind": "change",
+      "change": "show-supervisor-activity",
+      "x": 17,
+      "y": 158,
+      "deps": [
+        "N2"
+      ],
+      "preset": "ptc",
+      "provider": "ppxdeepseek",
+      "model": "deepseek-v4.1-flash-1017",
+      "effort": "max",
+      "prompt": "可以用马尾辫这个skill来辅助代码实现。",
+      "commit": true,
+      "approved": "",
+      "status": "pending",
+      "note": "",
+      "sessionId": "",
+      "updatedAt": ""
+    },
+    {
+      "id": "N4",
+      "kind": "change",
+      "change": "supervisor-watch-without-panel",
+      "x": 20,
+      "y": 230,
+      "deps": [
+        "N3"
+      ],
+      "preset": "ptc",
+      "provider": "ppxdeepseek",
+      "model": "deepseek-v4.1-flash-1017",
+      "effort": "max",
+      "prompt": "可以用马尾辫这个skill来辅助代码实现。",
+      "commit": true,
+      "approved": "",
+      "status": "pending",
+      "note": "",
+      "sessionId": "",
+      "updatedAt": ""
+    }
+  ]
+}

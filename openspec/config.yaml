@@ -1,0 +1,37 @@
+schema: spec-driven
+
+# 项目背景：生成 artifacts 时展示给 AI。
+context: |
+  Language: zh-CN. All artifacts must be written in zh-CN.
+  项目：dsh-openspec-pipeline —— DeepSeek Harness（DSH）的插件，当前 0.16.x。
+  作用：把多个 OpenSpec change 排成一张有向图，在面板选定的工作区里按依赖新建顶层对话执行。
+        图存在目标仓库的 openspec/pipeline.json。插件本身不验收、不归档；它只把「这一格算完成」
+        判成「这一轮正常收尾 + change 真的进了 archive/」，质量判断留给人和对话。
+  形态：cordis 插件，Node >= 20，ESM，无构建步骤。
+        Host 半身 lib/index.js（工具 + HTTP/SSE 路由 + runner），Web 客户端半身 lib/client.js（面板）。
+  依赖：openspec CLI（list / status / validate / archive）；DSH 宿主服务
+        tools、webServer、sessionController、llm、agentPresets、workspaceRegistry。
+  测试：test/*.mjs 是离线回归，用假 ctx，不需要起 DSH；新增行为要配一个脚本，并把跑法加进
+        README「离线回归」。
+  硬约束：两个半身的 apply() 都不许抛异常；inject 只声明必然存在的服务；新增注册动作都要单独兜底。
+  发布：版本号在 package.json；提交信息形如 "feat: ...（x.y.z）"。
+  语言：规格用中文写，但每条 requirement 正文要出现 MUST 或 SHALL —— strict 校验按英文关键词判。
+
+rules:
+  proposal:
+    - 用中文写；Why 说清现在的痛点，不复述功能。
+    - What Changes 只写行为层面的变化，不写实现步骤。
+  specs:
+    - 能力路径用 kebab-case，一个新能力一个目录。
+    - 每条 requirement 正文必须含 MUST 或 SHALL，且至少有一个 scenario。
+  tasks:
+    - 任务按「能独立验证」切分，不按文件切分。
+
+operations:
+  apply:
+    guidance:
+      - 只改这个 change 范围里的东西；跑 test/*.mjs 里相关的脚本。
+  archive:
+    guidance:
+      - 归档前跑 openspec validate <change> --strict。
+      - 归档后确认 openspec/specs/ 下已经出现对应的主规格。
