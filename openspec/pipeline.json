@@ -50,8 +50,8 @@
       "id": "N2",
       "kind": "change",
       "change": "fix-supervisor-prompt-signal",
-      "x": 20,
-      "y": 87,
+      "x": 5,
+      "y": 145,
       "deps": [
         "start"
       ],
@@ -62,17 +62,17 @@
       "prompt": "可以用马尾辫这个skill来辅助代码实现。",
       "commit": true,
       "approved": "2026-11-03T06:20:06.509Z",
-      "status": "running",
-      "note": "",
+      "status": "done",
+      "note": "对话跑完了，已归档（archive/2026-11-03-fix-supervisor-prompt-signal）\n已提交 d22bcfa",
       "sessionId": "session-c08b43a9-ec62-4a43-ae43-3398e063afa5",
-      "updatedAt": "2026-11-03T06:20:06.666Z"
+      "updatedAt": "2026-11-03T06:38:03.974Z"
     },
     {
       "id": "N3",
       "kind": "change",
       "change": "show-supervisor-activity",
-      "x": 17,
-      "y": 158,
+      "x": 0,
+      "y": 258,
       "deps": [
         "N2"
       ],
@@ -82,18 +82,18 @@
       "effort": "max",
       "prompt": "可以用马尾辫这个skill来辅助代码实现。",
       "commit": true,
-      "approved": "",
-      "status": "pending",
+      "approved": "2026-11-03T06:38:03.996Z",
+      "status": "running",
       "note": "",
-      "sessionId": "",
-      "updatedAt": ""
+      "sessionId": "session-1e77738d-2d7a-4b7d-8c68-35391d030982",
+      "updatedAt": "2026-11-03T06:38:04.293Z"
     },
     {
       "id": "N4",
       "kind": "change",
       "change": "supervisor-watch-without-panel",
-      "x": 20,
-      "y": 230,
+      "x": 241,
+      "y": 258,
       "deps": [
         "N3"
       ],

@@ -194,6 +194,12 @@ const stateA = await getState(projA)
 const supervisor = stateA.state?.supervisor
 check('监工 sessionId 记进了 pipeline.json', Boolean(supervisor?.sessionId), JSON.stringify(supervisor))
 check('监工开着', supervisor?.enabled === true, JSON.stringify(supervisor))
+// 面板那一行读这三个字段；少一个就静默少显示一段，所以状态里必须始终带齐。
+check(
+  '状态里带齐最近一次值班的三个字段',
+  ['lastAt', 'lastNote', 'lastError'].every((key) => Object.hasOwn(supervisor || {}, key)),
+  JSON.stringify(supervisor),
+)
 const intro = prompts.find((row) => row.sessionId === supervisor.sessionId && row.text.includes('值班监工'))
 check('开了之后先发口径', Boolean(intro), JSON.stringify(prompts.map((row) => row.text.slice(0, 30))))
 // 从这里开始，宿主拒收发给监工的话：值班单送不出去要留下记录。
