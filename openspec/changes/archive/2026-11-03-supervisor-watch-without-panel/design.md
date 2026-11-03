@@ -23,7 +23,9 @@
 
 ### 用持有者集合，不用「常驻」
 
-把 `watchArchives` 改成按持有者登记：`Map<runnerKey, { holders: Set<'panel'|'runner'|'supervisor'>, watchers, timer, seen }>`。`watchArchives(root, holder)` 加一份，`releaseArchiveWatch(root, holder)` 减一份，集合空了才真正关 watcher。
+把 `watchArchives` 改成按持有者登记：`Map<runnerKey, { holders: Set<'panel'|'supervisor'>, watchers, timer, seen }>`。`watchArchives(root, holder)` 加一份，`releaseArchiveWatch(root, holder)` 减一份，集合空了才真正关 watcher。
+
+runner 不占一份：`reportArchives` 见到 runner 在跑就直接返回（runner 自己会推进），那时候 watcher 对它没有用处。面板多个连接也只算一份 `panel`——退的时候按「这个工作区还有没有连接」判断，不是按连接计数。
 
 备选：监工一开就常驻 watcher，谁都不管。放弃的原因是停用监工之后会留下一个没人用的递归 watcher，而「停用」的语义就是不要再为这个仓库付出任何后台动作。
 

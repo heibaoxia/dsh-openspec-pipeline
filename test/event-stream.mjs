@@ -1,8 +1,9 @@
 // 离线回归：面板的推送通道（SSE）。
 //
-// 要证明两件事：
+// 要证明三件事：
 //   1. runner 写状态之后，Host 会推一条 {type:'nodes'}；
-//   2. change 被移进 archive/ 之后，Host 会推一条 {type:'archived', id, change, as}。
+//   2. change 被移进 archive/ 之后，Host 会推一条 {type:'archived', id, change, as}；
+//   3. 两个面板看同一个仓库，关掉一个不会把监听带停（监听按持有者算，不按连接算）。
 // 全程不用轮询磁盘，也不需要起 DSH。
 //
 // 跑法：
@@ -175,6 +176,26 @@ mkdirSync(path.join(changes, 'fresh', 'specs'), { recursive: true })
 writeFileSync(path.join(changes, 'fresh', 'tasks.md'), '- [ ] 做事\n', 'utf8')
 const changed = await nextEvent((event) => event.type === 'changes')
 check('仓库里的文件动了会推 changes', changed.type === 'changes', JSON.stringify(changed))
+
+// 5. 两个面板看同一个仓库：关掉其中一个，剩下的那个照常收归档 / 改动。
+//    监听按持有者算，面板这一份要在「最后一个连接断开」时才退。
+const second = await fetch(`${origin}/openspec-pipeline/api/events`)
+const secondReader = second.body.getReader()
+const secondPump = (async () => {
+  for (;;) {
+    const { done } = await secondReader.read()
+    if (done) return
+  }
+})().catch(() => {})
+await new Promise((resolve) => setTimeout(resolve, 300))
+try {
+  await secondReader.cancel()
+} catch {}
+secondPump.catch(() => {})
+await new Promise((resolve) => setTimeout(resolve, 400))
+mkdirSync(path.join(changes, 'later'), { recursive: true })
+const stillFresh = await nextEvent((event) => event.type === 'changes')
+check('关掉一个面板，剩下的照常收事件', stillFresh.type === 'changes', JSON.stringify(stillFresh))
 
 try {
   reader.cancel()

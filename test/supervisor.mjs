@@ -43,7 +43,7 @@ function makeProject(name, changes) {
   }
   return proj
 }
-function writePipeline(proj, nodes) {
+function writePipeline(proj, nodes, supervisor) {
   writeFileSync(
     path.join(proj, 'openspec', 'pipeline.json'),
     JSON.stringify(
@@ -53,6 +53,7 @@ function writePipeline(proj, nodes) {
         maxParallel: 1,
         profiles: [],
         defaultProfileId: '',
+        ...(supervisor ? { supervisor } : {}),
         nodes: [{ id: 'start', kind: 'start', change: '', deps: [], status: 'done' }, ...nodes],
       },
       null,
@@ -238,17 +239,8 @@ check(
 await post({ action: 'stop', root: projA })
 
 // ---------- 4. 情况二：上一格归档了、下一格没启动 → 值班单 ----------
-// 打开推送通道（归档监听跟着连接走），再把 change 挪进 archive/。
-const stream = await fetch(`${origin}/openspec-pipeline/api/events?root=${encodeURIComponent(projA)}`)
-const reader = stream.body.getReader()
-const pump = (async () => {
-  for (;;) {
-    const { done } = await reader.read()
-    if (done) return
-  }
-})().catch(() => {})
-await pause(300)
-
+// 这里一个人都没开面板：归档监听必须由监工自己持有（以前它挂在面板的推送连接上，
+// 面板一关，整夜的无人值守就聋了）。
 prompts.length = 0
 rejectPromptFor = '' // 宿主恢复收消息：这一张值班单要能送进去
 renameSync(path.join(projA, 'openspec', 'changes', 'a-one'), path.join(projA, 'openspec', 'changes', 'archive', '2026-11-02-a-one'))
@@ -283,10 +275,84 @@ check(
 )
 check('重试之后监工开着', afterRetryB.state?.supervisor?.enabled === true, JSON.stringify(afterRetryB.state?.supervisor))
 
+// ---------- 6. 最后一个面板断开之后归档，照常投单 ----------
+// 监听以前就挂在面板的推送连接上：连上、断开之后再归档，那条老链路已经哑了。
+// 现在面板那一份退出后，监工那份还在。
+const streamB = await fetch(`${origin}/openspec-pipeline/api/events?root=${encodeURIComponent(projB)}`)
+const readerB = streamB.body.getReader()
+const pumpB = (async () => {
+  for (;;) {
+    const { done } = await readerB.read()
+    if (done) return
+  }
+})().catch(() => {})
+await pause(300)
 try {
-  await reader.cancel()
+  await readerB.cancel()
 } catch {}
-pump.catch(() => {})
+pumpB.catch(() => {})
+await pause(400)
+prompts.length = 0
+renameSync(
+  path.join(projB, 'openspec', 'changes', 'b-one'),
+  path.join(projB, 'openspec', 'changes', 'archive', '2026-11-03-b-one'),
+)
+const afterDisconnect = await waitFor(() =>
+  prompts.find((row) => row.sessionId === supervisorB.sessionId && row.text.includes('已经归档')),
+)
+check(
+  '最后一个面板断开后归档，照常投值班单',
+  Boolean(afterDisconnect),
+  JSON.stringify(prompts.map((row) => row.text.slice(0, 40))),
+)
+
+// ---------- 7. 宿主重启之后：enabled 还是 true，读一次 status 就接回来 ----------
+// 模拟重启：内存里没有监听，pipeline.json 里监工还开着。不点「启用监工」，只调一次 status。
+const projC = makeProject('proj-c', ['c-one'])
+writePipeline(projC, [{ id: 'N1', change: 'c-one', deps: ['start'], status: 'pending' }], {
+  enabled: true,
+  sessionId: 'session-lazy',
+})
+sessions.set('session-lazy', { seq: 0, snapshotEvents: () => [] })
+prompts.length = 0
+const lazyStatus = await post({ action: 'status', root: projC })
+check('重启后读一次 status 不报错', lazyStatus.ok === true, JSON.stringify(lazyStatus.text || lazyStatus.error))
+renameSync(
+  path.join(projC, 'openspec', 'changes', 'c-one'),
+  path.join(projC, 'openspec', 'changes', 'archive', '2026-11-03-c-one'),
+)
+const lazyReport = await waitFor(() =>
+  prompts.find((row) => row.sessionId === 'session-lazy' && row.text.includes('已经归档')),
+)
+check(
+  '重启后读一次 status 就把归档监听挂回来',
+  Boolean(lazyReport),
+  JSON.stringify(prompts.map((row) => row.text.slice(0, 40))),
+)
+
+// ---------- 8. 停用监工：没面板也没 runner，归档不再打扰任何人 ----------
+const projD = makeProject('proj-d', ['d-one'])
+writePipeline(projD, [{ id: 'N1', change: 'd-one', deps: ['start'], status: 'pending' }])
+// 开监工要在主机的工作区列表里找得到这个仓库（真实路径就是这么取工作区的）。
+workspaces.push({ id: 'wd', title: 'proj-d', path: projD })
+const enableD = await post({ action: 'supervisor', root: projD, enabled: true })
+check('D 开监工成功', enableD.ok === true, JSON.stringify(enableD.text || enableD.error))
+const sessionD = (await getState(projD)).state?.supervisor?.sessionId
+const disableD = await post({ action: 'supervisor', root: projD, enabled: false })
+check('D 停用监工', disableD.ok === true, JSON.stringify(disableD.text || disableD.error))
+prompts.length = 0
+renameSync(
+  path.join(projD, 'openspec', 'changes', 'd-one'),
+  path.join(projD, 'openspec', 'changes', 'archive', '2026-11-03-d-one'),
+)
+await pause(1500)
+const afterDisable = prompts.filter((row) => row.sessionId === sessionD)
+check(
+  '停用监工之后归档不再投值班单',
+  Boolean(sessionD) && afterDisable.length === 0,
+  JSON.stringify(afterDisable.map((row) => row.text.slice(0, 40))),
+)
+
 cleanup()
 await new Promise((resolve) => server.close(resolve))
 
