@@ -18,10 +18,18 @@ const profile = path.join(sandbox, 'profile')
 const proj = path.join(sandbox, 'proj')
 const changes = path.join(proj, 'openspec', 'changes')
 mkdirSync(profile, { recursive: true })
-mkdirSync(path.join(changes, 'foo'), { recursive: true })
+mkdirSync(path.join(changes, 'foo', 'specs', 'demo'), { recursive: true })
 mkdirSync(path.join(changes, 'archive'), { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'specs'), { recursive: true })
 writeFileSync(path.join(changes, 'foo', 'proposal.md'), '# foo\n', 'utf8')
+// 四件规划写完才达到执行标准（否则这一格不开跑，测不到「跑一格会推 nodes」）。
+writeFileSync(path.join(changes, 'foo', 'design.md'), '# foo\n', 'utf8')
+writeFileSync(path.join(changes, 'foo', 'tasks.md'), '- [ ] 做事\n', 'utf8')
+writeFileSync(
+  path.join(changes, 'foo', 'specs', 'demo', 'spec.md'),
+  '## ADDED Requirements\n\n### Requirement: foo\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n',
+  'utf8',
+)
 writeFileSync(
   path.join(proj, 'openspec', 'pipeline.json'),
   JSON.stringify(

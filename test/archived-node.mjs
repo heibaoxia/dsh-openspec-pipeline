@@ -16,9 +16,17 @@ const proj = path.join(sandbox, 'proj')
 mkdirSync(profile, { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'changes', 'archive', '2026-10-29-demo'), { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'changes', 'archive', '2026-10-29-gone'), { recursive: true })
-mkdirSync(path.join(proj, 'openspec', 'changes', 'live'), { recursive: true })
+mkdirSync(path.join(proj, 'openspec', 'changes', 'live', 'specs', 'demo'), { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'specs'), { recursive: true })
 writeFileSync(path.join(proj, 'openspec', 'changes', 'live', 'tasks.md'), '- [ ] 做事\n', 'utf8')
+// 执行标准要求四件规划写完：缺一件这一格就不该开跑。
+writeFileSync(path.join(proj, 'openspec', 'changes', 'live', 'proposal.md'), '# live\n', 'utf8')
+writeFileSync(path.join(proj, 'openspec', 'changes', 'live', 'design.md'), '# live\n', 'utf8')
+writeFileSync(
+  path.join(proj, 'openspec', 'changes', 'live', 'specs', 'demo', 'spec.md'),
+  '## ADDED Requirements\n\n### Requirement: live\n\nThe system SHALL live.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n',
+  'utf8',
+)
 
 function pipeline(nodes) {
   return JSON.stringify(

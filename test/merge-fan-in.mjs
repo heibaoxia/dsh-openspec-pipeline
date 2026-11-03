@@ -57,6 +57,8 @@ function makeProject(name, changes) {
       'utf8',
     )
     // 全勾：changeStage 判成「做完了」，不会被当成「他处进行」拦住。
+    // 四件规划写完才达到执行标准（缺 design 这一格就不开跑）。
+    writeFileSync(path.join(base, 'design.md'), `# 设计 ${change}\n`, 'utf8')
     writeFileSync(path.join(base, 'tasks.md'), '## 1. 任务\n\n- [x] 1.1 做完了\n', 'utf8')
   }
   return proj

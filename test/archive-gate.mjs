@@ -17,8 +17,16 @@ const proj = path.join(sandbox, 'proj')
 const changes = path.join(proj, 'openspec', 'changes')
 mkdirSync(profile, { recursive: true })
 for (const name of ['foo', 'bar']) {
-  mkdirSync(path.join(changes, name), { recursive: true })
+  mkdirSync(path.join(changes, name, 'specs', 'demo'), { recursive: true })
   writeFileSync(path.join(changes, name, 'proposal.md'), `# ${name}\n`, 'utf8')
+  // 四件规划写完才达到执行标准（否则这一格不开跑，测试就跑不起来）。
+  writeFileSync(path.join(changes, name, 'design.md'), `# ${name}\n`, 'utf8')
+  writeFileSync(path.join(changes, name, 'tasks.md'), '- [ ] 做事\n', 'utf8')
+  writeFileSync(
+    path.join(changes, name, 'specs', 'demo', 'spec.md'),
+    `## ADDED Requirements\n\n### Requirement: ${name}\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n`,
+    'utf8',
+  )
 }
 mkdirSync(path.join(changes, 'archive'), { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'specs'), { recursive: true })

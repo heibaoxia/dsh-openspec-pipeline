@@ -37,9 +37,15 @@ function makeProject(name, changes) {
   mkdirSync(path.join(dir, 'archive'), { recursive: true })
   for (const change of changes) {
     const base = path.join(dir, change)
-    mkdirSync(base, { recursive: true })
+    mkdirSync(path.join(base, 'specs', 'demo'), { recursive: true })
     writeFileSync(path.join(base, 'proposal.md'), `# ${change}\n`, 'utf8')
+    writeFileSync(path.join(base, 'design.md'), `# ${change}\n`, 'utf8')
     writeFileSync(path.join(base, 'tasks.md'), '- [x] 1.1 做完了\n', 'utf8')
+    writeFileSync(
+      path.join(base, 'specs', 'demo', 'spec.md'),
+      `## ADDED Requirements\n\n### Requirement: ${change}\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n`,
+      'utf8',
+    )
   }
   return proj
 }

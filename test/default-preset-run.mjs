@@ -14,11 +14,18 @@ const sandbox = mkdtempSync(path.join(os.tmpdir(), 'osp-defaults-'))
 const profile = path.join(sandbox, 'profile')
 const proj = path.join(sandbox, 'demo-project')
 mkdirSync(profile, { recursive: true })
-mkdirSync(path.join(proj, 'openspec', 'changes', 'foo'), { recursive: true })
+mkdirSync(path.join(proj, 'openspec', 'changes', 'foo', 'specs', 'demo'), { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'changes', 'archive'), { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'specs'), { recursive: true })
 writeFileSync(path.join(proj, 'openspec', 'changes', 'foo', 'proposal.md'), '# foo\n', 'utf8')
 writeFileSync(path.join(proj, 'openspec', 'changes', 'foo', 'tasks.md'), '- [ ] 做事\n', 'utf8')
+// 四件规划写完才达到执行标准（否则这一格不开跑，测试就跑不起来）。
+writeFileSync(path.join(proj, 'openspec', 'changes', 'foo', 'design.md'), '# foo\n', 'utf8')
+writeFileSync(
+  path.join(proj, 'openspec', 'changes', 'foo', 'specs', 'demo', 'spec.md'),
+  '## ADDED Requirements\n\n### Requirement: foo\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n',
+  'utf8',
+)
 
 // 模拟那个对话自己归档：把目录挪进 archive/。
 function archiveChange(name) {
@@ -243,9 +250,15 @@ check(
 )
 
 // 3. 组合带提示词：组合里的提示词要存得住，新加的节点连提示词一起播种。
-mkdirSync(path.join(proj, 'openspec', 'changes', 'bar'), { recursive: true })
+mkdirSync(path.join(proj, 'openspec', 'changes', 'bar', 'specs', 'demo'), { recursive: true })
 writeFileSync(path.join(proj, 'openspec', 'changes', 'bar', 'proposal.md'), '# bar\n', 'utf8')
 writeFileSync(path.join(proj, 'openspec', 'changes', 'bar', 'tasks.md'), '- [ ] 做事\n', 'utf8')
+writeFileSync(path.join(proj, 'openspec', 'changes', 'bar', 'design.md'), '# bar\n', 'utf8')
+writeFileSync(
+  path.join(proj, 'openspec', 'changes', 'bar', 'specs', 'demo', 'spec.md'),
+  '## ADDED Requirements\n\n### Requirement: bar\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n',
+  'utf8',
+)
 const comboPrompt = '做完跑一遍 pnpm test；全过了再按 openspec-archive-change 归档。'
 await postAction({
   action: 'save',

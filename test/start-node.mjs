@@ -17,12 +17,20 @@ const proj = path.join(sandbox, 'demo-project')
 mkdirSync(profile, { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'changes', 'archive'), { recursive: true })
 mkdirSync(path.join(proj, 'openspec', 'specs'), { recursive: true })
-for (const name of ['alpha', 'beta']) {
+// 四件规划写完才达到执行标准（缺一件这一格就不开跑）。
+function makeChange(name) {
   const dir = path.join(proj, 'openspec', 'changes', name)
-  mkdirSync(dir, { recursive: true })
+  mkdirSync(path.join(dir, 'specs', 'demo'), { recursive: true })
   writeFileSync(path.join(dir, 'proposal.md'), `# ${name}\n`, 'utf8')
+  writeFileSync(path.join(dir, 'design.md'), `# ${name}\n`, 'utf8')
   writeFileSync(path.join(dir, 'tasks.md'), '- [ ] 做事\n', 'utf8')
+  writeFileSync(
+    path.join(dir, 'specs', 'demo', 'spec.md'),
+    `## ADDED Requirements\n\n### Requirement: ${name}\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n`,
+    'utf8',
+  )
 }
+for (const name of ['alpha', 'beta']) makeChange(name)
 
 function archiveChange(name) {
   renameSync(
@@ -189,15 +197,30 @@ check('已归档的格子再启动被拒绝', again.status === 400, JSON.stringi
 // 4. 前置「归档了但那一轮还没收尾」（状态不是 done）→ 照样能启动。
 //    alpha 已经在 archive/ 里了（上面第 2 步归的），这里只把图上 A 的状态改回 pending，
 //    就是「归档了、还没收尾」那个样子。
-const writeGraph = (nodes) => postAction({ action: 'plan', name: '启动按钮测试', nodes })
 // beta2：单独放一个还在 changes/ 里的 change，避免复用上面已经归档的 beta。
-mkdirSync(path.join(proj, 'openspec', 'changes', 'beta2'), { recursive: true })
-writeFileSync(path.join(proj, 'openspec', 'changes', 'beta2', 'proposal.md'), '# beta2\n', 'utf8')
-writeFileSync(path.join(proj, 'openspec', 'changes', 'beta2', 'tasks.md'), '- [ ] 做事\n', 'utf8')
-await writeGraph([
-  { id: 'A', change: 'alpha', deps: ['start'], status: 'pending' },
-  { id: 'B', change: 'beta2', deps: ['A'], status: 'pending' },
-])
+makeChange('beta2')
+// plan 会拒绝已归档的名字（已经跑完的 change 不能画回图里），所以这一格直接写文件：
+// 模拟「A 的 change 已经归档、但图上 A 还没收尾」这个状态。
+writeFileSync(
+  path.join(proj, 'openspec', 'pipeline.json'),
+  JSON.stringify(
+    {
+      version: 1,
+      name: '启动按钮测试',
+      maxParallel: 1,
+      profiles: [],
+      defaultProfileId: '',
+      nodes: [
+        { id: 'start', kind: 'start', change: '', deps: [], status: 'done' },
+        { id: 'A', change: 'alpha', deps: ['start'], status: 'pending' },
+        { id: 'B', change: 'beta2', deps: ['A'], status: 'pending' },
+      ],
+    },
+    null,
+    2,
+  ),
+  'utf8',
+)
 calls.created.length = 0
 calls.prompted.length = 0
 const upstreamArchived = await postAction({ action: 'start-node', nodeId: 'B' })

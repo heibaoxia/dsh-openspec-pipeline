@@ -51,8 +51,16 @@ function makeProject(tag, changeNames) {
   mkdirSync(path.join(root, 'openspec', 'changes'), { recursive: true })
   writeFileSync(path.join(root, 'app.txt'), 'v0\n', 'utf8')
   for (const name of changeNames) {
-    mkdirSync(path.join(changes, name), { recursive: true })
+    mkdirSync(path.join(changes, name, 'specs', 'demo'), { recursive: true })
     writeFileSync(path.join(changes, name, 'proposal.md'), `# ${name}\n`, 'utf8')
+    // 四件规划写完才达到执行标准（否则这一格不开跑，测试就跑不起来）。
+    writeFileSync(path.join(changes, name, 'design.md'), `# ${name}\n`, 'utf8')
+    writeFileSync(path.join(changes, name, 'tasks.md'), '- [ ] 做事\n', 'utf8')
+    writeFileSync(
+      path.join(changes, name, 'specs', 'demo', 'spec.md'),
+      `## ADDED Requirements\n\n### Requirement: ${name}\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n`,
+      'utf8',
+    )
   }
   gitOrDie(root, ['init', '-q'])
   gitOrDie(root, ['add', '-A'])
@@ -254,10 +262,15 @@ const c = makeProject('c', ['foo'])
 archiveChange(c, 'foo')
 calls.length = 0
 await switchTo(c)
-// 用插件自己的 plan 写一次画布，再把它连同归档一起提交 —— 这样开跑时工作树真的是干净的。
+// 写一次画布，再把它连同归档一起提交 —— 这样开跑时工作树真的是干净的。
+// 走 save 而不是 plan：foo 已经归档了，而 plan 会拒绝已归档的名字。
 await postAction({
-  action: 'plan',
-  nodes: [{ id: 'N1', change: 'foo', deps: ['start'], status: 'pending', commit: true }],
+  action: 'save',
+  state: {
+    name: '提交测试',
+    maxParallel: 1,
+    nodes: [{ id: 'N1', change: 'foo', deps: ['start'], status: 'pending', commit: true }],
+  },
 })
 gitOrDie(c, ['add', '-A'])
 gitOrDie(c, ['commit', '-q', '-m', 'pipeline'])

@@ -26,10 +26,16 @@ function makeProject(name, change) {
   const proj = path.join(sandbox, name)
   const dir = path.join(proj, 'openspec', 'changes')
   mkdirSync(path.join(proj, 'openspec', 'specs'), { recursive: true })
-  mkdirSync(path.join(dir, change), { recursive: true })
+  mkdirSync(path.join(dir, change, 'specs', 'demo'), { recursive: true })
   mkdirSync(path.join(dir, 'archive'), { recursive: true })
   writeFileSync(path.join(dir, change, 'proposal.md'), `# ${change}\n`, 'utf8')
+  writeFileSync(path.join(dir, change, 'design.md'), `# ${change}\n`, 'utf8')
   writeFileSync(path.join(dir, change, 'tasks.md'), '## 1. 任务\n\n- [x] 1.1 做完了\n', 'utf8')
+  writeFileSync(
+    path.join(dir, change, 'specs', 'demo', 'spec.md'),
+    `## ADDED Requirements\n\n### Requirement: ${change}\n\nThe system SHALL do it.\n\n#### Scenario: works\n- **WHEN** 有人要它做\n- **THEN** 它做了\n`,
+    'utf8',
+  )
   writeFileSync(
     path.join(proj, 'openspec', 'pipeline.json'),
     JSON.stringify(

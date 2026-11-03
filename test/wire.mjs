@@ -56,6 +56,8 @@ function makeProject(name, changes) {
       ].join('\n'),
       'utf8',
     )
+    // 四件规划写完才达到执行标准（缺 design 这一格就不开跑）。
+    writeFileSync(path.join(base, 'design.md'), `# 设计 ${change}\n`, 'utf8')
     writeFileSync(path.join(base, 'tasks.md'), '## 1. 任务\n\n- [x] 1.1 做完了\n', 'utf8')
   }
   return proj
@@ -353,6 +355,47 @@ check(
   JSON.stringify(nodesOf(fromRun).map((n) => [n.id, n.status, n.note])),
 )
 await post({ action: 'stop' })
+
+// ---------- 11. 已归档的 change：wire 跳过并回报，plan 整单拒绝 ----------
+console.log('\n11. 已归档的 change 不能画回图里')
+const projH = makeProject('case-archived', ['mixed-a', 'mixed-b', 'mixed-c'])
+archive(projH, 'mixed-b')
+workspaces = [{ id: 'w8', title: 'case-archived', path: projH, sessionIds: [] }]
+await post({ action: 'root', root: projH })
+
+const mixed = await post({ action: 'wire', order: ['mixed-a', 'mixed-b', 'mixed-c'] })
+check('已归档的那一格没加进来', idsOf(mixed).sort().join() === 'mixed-a,mixed-c', JSON.stringify(idsOf(mixed)))
+check(
+  '回话写明跳过了哪个、为什么',
+  /跳过/.test(msgOf(mixed)) && /mixed-b/.test(msgOf(mixed)) && /归档/.test(msgOf(mixed)),
+  msgOf(mixed),
+)
+check(
+  '已归档的上游当成「只等开工」，下游不会被扔在画布外',
+  depsOf(mixed, 'mixed-c').join() === 'start',
+  JSON.stringify(depsOf(mixed, 'mixed-c')),
+)
+check('新增的只有两格', /新增 2 格/.test(msgOf(mixed)), msgOf(mixed))
+
+// 上游写成已归档的名字：当成「已经满足」吃掉，不整单拒绝。
+const satisfied = await post({ action: 'wire', steps: [{ change: 'mixed-c', after: ['mixed-b'] }], rewire: true })
+check('上游已归档不整单拒绝', satisfied.ok !== false, msgOf(satisfied))
+check('这条等待当成已经满足（只等开工）', depsOf(satisfied, 'mixed-c').join() === 'start', JSON.stringify(depsOf(satisfied, 'mixed-c')))
+check('回话里写的是实际的线', /mixed-c → 开工/.test(msgOf(satisfied)), msgOf(satisfied))
+
+// plan：出现已归档 / 找不到的名字 → 整单拒绝，一个字节都不写。
+const beforePlan = JSON.stringify(diskOf(projH))
+const rejectedPlan = await post({
+  action: 'plan',
+  nodes: [{ id: 'X', change: 'mixed-a' }, { id: 'Y', change: 'mixed-b' }],
+})
+check('plan 带已归档的名字就拒绝', rejectedPlan.ok === false && /不能画进图里/.test(msgOf(rejectedPlan)), msgOf(rejectedPlan))
+check('拒绝时点名是哪个', /mixed-b/.test(msgOf(rejectedPlan)), msgOf(rejectedPlan))
+check('plan 被拒绝时 pipeline.json 没动', JSON.stringify(diskOf(projH)) === beforePlan)
+
+const unknownPlan = await post({ action: 'plan', nodes: [{ id: 'X', change: 'does-not-exist' }] })
+check('plan 带找不到的名字也拒绝', unknownPlan.ok === false && /不能画进图里/.test(msgOf(unknownPlan)), msgOf(unknownPlan))
+check('还是没写', JSON.stringify(diskOf(projH)) === beforePlan)
 
 console.log(failures.length ? `\n${failures.length} 项没过` : '\n全部通过')
 process.exit(failures.length ? 1 : 0)
