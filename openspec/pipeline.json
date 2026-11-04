@@ -63,10 +63,10 @@
       "prompt": "可以用马尾辫这个skill来辅助代码实现。",
       "commit": true,
       "approved": "2026-11-03T15:09:46.346Z",
-      "status": "running",
-      "note": "",
+      "status": "done",
+      "note": "对话跑完了，已归档（archive/2026-11-04-supervisor-handles-failed-node）\n已提交 30729fc",
       "sessionId": "session-4f8a876c-f2a4-46b4-8dd5-50c16ea6094e",
-      "updatedAt": "2026-11-03T15:20:43.146Z"
+      "updatedAt": "2026-11-03T16:31:54.151Z"
     }
   ]
 }
